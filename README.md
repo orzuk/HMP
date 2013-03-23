@@ -1,4 +1,4 @@
 HMM
 ===
 
-Implementation of Hidden Markov Model functions in C
+Implementation of functions for Hidden Markov Process in C and Matlab
