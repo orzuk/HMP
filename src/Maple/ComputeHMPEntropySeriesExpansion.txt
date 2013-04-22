@@ -1,0 +1,131 @@
+################################################################################
+# Written by Or Zuk 02/2006                                                    #
+#                                                                              #                
+# This program computes the coefficients of a Taylor series expansion          #
+# for a Binary Symmetric Hidden Markov Process, in the High-SNR regime         #
+# or in the Almost-Memoryless regime.                                          #
+# It accompanies the paper:                                                    #            
+# "From Finite-System Entropy to Entropy Rate for a Hidden Markov Process"     #
+# IEEE Sig. Proc. Letters, 13(9): 517:520 (2006)                               #
+# By O. Zuk, E. Domany, I. Kanter and M. Aizenman                              #
+################################################################################
+
+restart;
+# some general utilities to be used
+single_ent := proc(x) return -x*log(x); end proc;
+bin_ent := proc(x) return -x*log(x) - (1-x)*log(1-x); end proc;
+conv := proc(x,y); return x*(1-y) + y*(1-x); end proc;
+inv_conv := proc(x,y); return 1-x-y+2*x*y; end proc;
+Bit := proc(x, k); return floor(x/2^k) mod 2; end proc;
+Xor := proc(x,y); return (x+y) mod 2; end proc;
+
+
+# Hard coded: Maximal coefficient is 12. Series expansion of the function P*log(P)
+# when P is some polynomial with the i-th coefficients being V[i]
+L := 12;
+ent_series := proc(V, L);
+ret[1] := V[1]*ln(V[1]);
+ret[2] := V[2]+V[2]*ln(V[1]); ret[3] := 1/2*(2*V[3]*V[1]+V[2]^2+2*V[3]*ln(V[1])*V[1])/V[1];
+ret[4] := 1/6*(6*V[4]*V[1]^2-V[2]^3+6*V[4]*ln(V[1])*V[1]^2+6*V[2]*V[3]*V[1])/V[1]^2; ret[5] := 1/12*(12*V[5]*V[1]^3+6*V[3]^2*V[1]^2-6*V[3]*V[1]*V[2]^2+V[2]^4+12*V[2]*V[4]*V[1]^2+12*V[5]*ln(V[1])*V[1]^3)/V[1]^3;
+ret[6] := 1/60*(60*V[4]*V[1]^3*V[3]-30*V[4]*V[1]^2*V[2]^2+60*V[6]*V[1]^4-30*V[3]^2*V[1]^2*V[2]+20*V[3]*V[1]*V[2]^3-3*V[2]^5+60*V[2]*V[5]*V[1]^3+60*V[6]*ln(V[1])*V[1]^4)/V[1]^4; ret[7] := 1/60*(-60*V[4]*V[1]^3*V[2]*V[3]-15*V[3]*V[1]*V[2]^4+30*V[3]^2*V[1]^2*V[2]^2+20*V[4]*V[1]^2*V[2]^3+2*V[2]^6+60*V[7]*ln(V[1])*V[1]^5+60*V[2]*V[6]*V[1]^4-10*V[3]^3*V[1]^3+30*V[4]^2*V[1]^4+60*V[7]*V[1]^5-30*V[5]*V[1]^3*V[2]^2+60*V[5]*V[1]^4*V[3])/V[1]^5;
+ret[8] := 1/420*(-10*V[2]^7+420*V[4]*V[1]^3*V[3]*V[2]^2+140*V[5]*V[1]^3*V[2]^3+420*V[6]*V[1]^5*V[3]-210*V[6]*V[1]^4*V[2]^2+420*V[4]*V[1]^5*V[5]+420*V[8]*V[1]^6-105*V[4]*V[1]^2*V[2]^4-210*V[4]*V[1]^4*V[3]^2-210*V[4]^2*V[1]^4*V[2]+84*V[3]*V[1]*V[2]^5-210*V[3]^2*V[1]^2*V[2]^3+140*V[3]^3*V[1]^3*V[2]+420*V[2]*V[7]*V[1]^5-420*V[5]*V[1]^4*V[2]*V[3]+420*V[8]*ln(V[1])*V[1]^6)/V[1]^6;
+ret[9] := 1/840*(840*V[9]*V[1]^7+840*V[3]^2*V[1]^4*V[2]*V[4]-840*V[3]*V[1]^3*V[4]*V[2]^3+840*V[3]*V[1]^4*V[5]*V[2]^2-840*V[3]*V[1]^5*V[2]*V[6]-840*V[4]*V[1]^5*V[2]*V[5]+70*V[3]^4*V[1]^4+420*V[5]^2*V[1]^6-420*V[3]^3*V[1]^3*V[2]^2-420*V[3]^2*V[1]^5*V[5]+420*V[3]^2*V[1]^2*V[2]^4-420*V[3]*V[1]^5*V[4]^2+840*V[3]*V[1]^6*V[7]-140*V[3]*V[1]*V[2]^6+420*V[4]^2*V[1]^4*V[2]^2+840*V[4]*V[1]^6*V[6]+168*V[4]*V[1]^2*V[2]^5-210*V[5]*V[1]^3*V[2]^4-420*V[7]*V[1]^5*V[2]^2+280*V[6]*V[1]^4*V[2]^3+15*V[2]^8+840*V[9]*ln(V[1])*V[1]^7+840*V[2]*V[8]*V[1]^6)/V[1]^7; ret[10] :=
+-1/2520*(2520*V[3]*V[1]^6*V[2]*V[7]+3780*V[3]^2*V[1]^4*V[4]*V[2]^2-2520*V[3]^2*V[1]^5*V[2]*V[5]-2520*V[3]*V[1]^5*V[4]^2*V[2]+2520*V[3]*V[1]^6*V[4]*V[5]-2520*V[3]*V[1]^3*V[4]*V[2]^4+2520*V[3]*V[1]^4*V[5]*V[2]^3-2520*V[3]*V[1]^5*V[6]*V[2]^2-2520*V[4]*V[1]^5*V[5]*V[2]^2+2520*V[4]*V[1]^6*V[2]*V[6]-2520*V[10]*V[1]^8-2520*V[2]*V[9]*V[1]^7+35*V[2]^9-360*V[3]*V[1]*V[2]^7+630*V[3]^4*V[1]^4*V[2]-840*V[3]^3*V[1]^5*V[4]-1680*V[3]^3*V[1]^3*V[2]^3+1260*V[3]^2*V[1]^6*V[6]+1260*V[3]^2*V[1]^2*V[2]^5+1260*V[4]^2*V[1]^4*V[2]^3-2520*V[4]*V[1]^7*V[7]+420*V[4]*V[1]^2*V[2]^6+1260*V[5]^2*V[1]^6*V[2]-2520*V[5]*V[1]^7*V[6]-504*V[5]*V[1]^3*V[2]^5-840*V[7]*V[1]^5*V[2]^3+630*V[6]*V[1]^4*V[2]^4+420*V[4]^3*V[1]^6-2520*V[10]*ln(V[1])*V[1]^8-2520*V[3]*V[1]^7*V[8]+1260*V[8]*V[1]^6*V[2]^2)/V[1]^8;
+ret[11] :=
+1/2520*(-2520*V[4]*V[1]^7*V[2]*V[7]-3780*V[4]^2*V[1]^5*V[3]*V[2]^2-2520*V[4]*V[1]^5*V[3]^3*V[2]+5040*V[4]*V[1]^4*V[3]^2*V[2]^3-2520*V[4]*V[1]^7*V[3]*V[6]-2520*V[4]*V[1]^3*V[3]*V[2]^5-2520*V[4]*V[1]^5*V[5]*V[2]^3+2520*V[4]*V[1]^6*V[6]*V[2]^2-3780*V[5]*V[1]^5*V[3]^2*V[2]^2+2520*V[5]*V[1]^4*V[3]*V[2]^4-2520*V[5]*V[1]^7*V[2]*V[6]+2520*V[7]*V[1]^6*V[3]*V[2]^2+2520*V[6]*V[1]^6*V[3]^2*V[2]-2520*V[6]*V[1]^5*V[3]*V[2]^3+2520*V[9]*V[1]^8*V[3]-1260*V[9]*V[1]^7*V[2]^2+2520*V[2]*V[10]*V[1]^8+2520*V[11]*V[1]^9+1260*V[6]^2*V[1]^8-126*V[3]^5*V[1]^5+360*V[4]*V[1]^2*V[2]^7+1260*V[4]^2*V[1]^6*V[3]^2+840*V[4]^3*V[1]^6*V[2]-1260*V[4]^2*V[1]^7*V[5]+1260*V[4]^2*V[1]^4*V[2]^4+840*V[5]*V[1]^6*V[3]^3-1260*V[5]^2*V[1]^7*V[3]+1260*V[5]^2*V[1]^6*V[2]^2+2520*V[5]*V[1]^8*V[7]-420*V[5]*V[1]^3*V[2]^6-1260*V[7]*V[1]^7*V[3]^2-630*V[7]*V[1]^5*V[2]^4+504*V[6]*V[1]^4*V[2]^5+1260*V[3]^4*V[1]^4*V[2]^2-2100*V[3]^3*V[1]^3*V[2]^4+1260*V[3]^2*V[1]^2*V[2]^6-315*V[3]*V[1]*V[2]^8+5040*V[4]*V[1]^6*V[3]*V[2]*V[5]+28*V[2]^10-2520*V[8]
+*V[1]^7*V[2]*V[3]+2520*V[11]*ln(V[1])*V[1]^9+840*V[8]*V[1]^6*V[2]^3+2520*V[4]*V[1]^8*V[8])/V[1]^9;ret[12] :=
+-1/27720*(83160*V[5]*V[1]^6*V[3]*V[4]*V[2]^2-55440*V[6]*V[1]^7*V[3]*V[2]*V[4]+27720*V[5]*V[1]^8*V[2]*V[7]-27720*V[5]^2*V[1]^7*V[3]*V[2]+27720*V[5]*V[1]^6*V[3]^3*V[2]-27720*V[5]*V[1]^7*V[3]^2*V[4]-55440*V[5]*V[1]^5*V[3]^2*V[2]^3+27720*V[5]*V[1]^8*V[3]*V[6]+27720*V[5]*V[1]^4*V[3]*V[2]^5-27720*V[5]*V[1]^7*V[4]^2*V[2]-27720*V[5]*V[1]^5*V[4]*V[2]^4-27720*V[5]*V[1]^7*V[6]*V[2]^2-27720*V[7]*V[1]^7*V[3]^2*V[2]+27720*V[7]*V[1]^8*V[3]*V[4]+27720*V[7]*V[1]^6*V[3]*V[2]^3-27720*V[7]*V[1]^7*V[4]*V[2]^2+41580*V[6]*V[1]^6*V[3]^2*V[2]^2-27720*V[6]*V[1]^5*V[3]*V[2]^4+27720*V[6]*V[1]^6*V[4]*V[2]^3+41580*V[4]^2*V[1]^6*V[3]^2*V[2]-55440*V[4]^2*V[1]^5*V[3]*V[2]^3-55440*V[4]*V[1]^5*V[3]^3*V[2]^2+69300*V[4]*V[1]^4*V[3]^2*V[2]^4-27720*V[4]*V[1]^3*V[3]*V[2]^6+252*V[2]^11-3960*V[5]*V[1]^3*V[2]^7+13860*V[5]^2*V[1]^8*V[4]+13860*V[5]^2*V[1]^6*V[2]^3-27720*V[7]*V[1]^9*V[6]-5544*V[7]*V[1]^5*V[2]^5+13860*V[6]*V[1]^8*V[4]^2+13860*V[6]^2*V[1]^8*V[2]+4620*V[6]*V[1]^4*V[2]^6+6930*V[4]*V[1]^6*V[3]^4-9240*V[4]^3*V[1]^7*V[3]
++13860*V[4]^3*V[1]^6*V[2]^2+13860*V[4]^2*V[1]^4*V[2]^5+3465*V[4]*V[1]^2*V[2]^8-3080*V[3]*V[1]*V[2]^9+13860*V[3]^2*V[1]^2*V[2]^7-5544*V[3]^5*V[1]^5*V[2]+23100*V[3]^4*V[1]^4*V[2]^3-27720*V[3]^3*V[1]^3*V[2]^5+27720*V[8]*V[1]^8*V[2]*V[4]-27720*V[8]*V[1]^7*V[3]*V[2]^2-27720*V[12]*ln(V[1])*V[1]^10-27720*V[12]*V[1]^10-27720*V[2]*V[11]*V[1]^9+13860*V[10]*V[1]^8*V[2]^2-27720*V[9]*V[1]^9*V[4]-9240*V[9]*V[1]^7*V[2]^3-27720*V[10]*V[1]^9*V[3]+27720*V[9]*V[1]^8*V[2]*V[3]-9240*V[6]*V[1]^7*V[3]^3+6930*V[8]*V[1]^6*V[2]^4+13860*V[8]*V[1]^8*V[3]^2-27720*V[5]*V[1]^9*V[8])/V[1]^10;
+
+return ret; end proc;
+
+# Main calculation: Loop over all 2^n sequences and compute the entropy 
+ComputeHMPEntSeries := proc(regime, max_n)
+
+HighSNR := 0; AlmostMemoryless := 1;
+start_time := time();
+printlevel := 1;
+
+L := 11; # The maximal order for which we wish to compute
+assume(p>0,p<1/2); # w.l.o.g. p<1/2
+if(regime = AlmostMemoryless) then
+p := 1/2-q;
+end if:
+
+for n from 1 to max_n do # Loop over all values of n up to max_n
+# First prepare a table of all the p[x]
+for X from 0 to 2^n-1 do
+p_x[X] := 1/2:
+for j from 1 to n-1 do 
+p_x[X] := p_x[X] * p^(Xor(Bit(X,j-1),Bit(X,j)))*(1-p)^Xor(Xor(Bit(X,j-1),Bit(X,j)),1):
+end do:
+end do:
+
+total_ent[n] := 0;
+for j from 1 to L+1 do
+total_ent_orders[n][j] := 0;
+end do;
+
+# Start the main loop : go over all the Y's
+for Y from 0 to 2^n-1 do
+p_y := 0:
+for X from 0 to 2^n-1 do
+count_equal_bits := 0;
+for j from 0 to n-1 do 
+count_equal_bits := count_equal_bits + Xor(Bit(X,j),Bit(Y,j)); # Here is probably the heviest loop 
+end do:
+p_y := p_y + p_x[X] * epsilon^count_equal_bits*(1-epsilon)^(n-count_equal_bits):
+
+end do:
+p_y := simplify(p_y);
+
+# Get the expansion coefficients of p_y 
+if(regime = HighSNR) then 
+for j from 0 to L do 
+QQ[j+1] := coeff(p_y, epsilon,j);
+end do;
+else
+for j from 0 to L do 
+QQ[j+1] := coeff(p_y, q,j);
+end do;
+end if:
+
+# Replace p*log(p) by its expansion up to a given order 
+current_orders := ent_series(QQ);
+for k from 1 to L+1 do
+total_ent_orders[n][k] := simplify(total_ent_orders[n][k]+current_orders[k]);
+end do;
+
+end do: # end loop on Y
+
+
+end do; # End loop on n
+
+time() - start_time;
+
+# Compute Cover&Thomas upper bounds
+for n from 1 to max_n-1 do 
+for k from 1 to L+1 do
+cover_upper_orders[n][k] := simplify(total_ent_orders[n+1][k]-total_ent_orders[n][k]):
+end do:
+n;
+end do:
+
+# Now check for every k which Cover&Thomas order gets it !!!
+printlevel := 2;
+#p := (1-lambda)/2; # represent orders as function of the eigenvalue lambds=1-2*p
+for k from 1 to L+1 do
+for n from 1 to max_n-2 do 
+if(simplify(cover_upper_orders[n+1][k]-cover_upper_orders[n][k]) = 0) then  printlevel := 3; HMP_EntRateOrders[k] := sort(factor(simplify(cover_upper_orders[n+1][k])),lambda);  n := max_n;  print('Order ', k-1, ' settles_after ', n+1, ' bits '); print(HMP_EntRateOrders[k]); end if; 
+
+end do;
+end do;
+
+return HMP_EntRateOrders;
+
+end proc;
+# Call the function:
+max_n := 4; # Set the maximal number of bits
+HighSNR := 0; AlmostMemoryless := 1;
+HighSNR_HMP_EntRateOrders := ComputeHMPEntSeries(HighSNR, max_n):
+AlmostMemoryless_HMP_EntRateOrders := ComputeHMPEntSeries(AlmostMemoryless, max_n):
